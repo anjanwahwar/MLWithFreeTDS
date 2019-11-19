@@ -1,35 +1,57 @@
-#Use python as base image
-FROM python:3.5-slim
+FROM oryxprod/python-3.7:20190109.2
+LABEL maintainer="appsvc-images@microsoft.com"
 
-# install FreeTDS
+RUN apt-get install curl
+RUN apt-get install apt-transport-https
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+RUN curl https://packages.microsoft.com/config/ubuntu/16.04/prod.list | tee /etc/apt/sources.list.d/msprod.list
+
 RUN apt-get update
-RUN apt-get install unixodbc -y
-RUN apt-get install unixodbc-dev -y
-RUN apt-get install freetds-dev -y
-RUN apt-get install freetds-bin -y
-RUN apt-get install tdsodbc -y
-RUN apt-get install --reinstall build-essential -y
+ENV ACCEPT_EULA=y DEBIAN_FRONTEND=noninteractive
+RUN apt-get install mssql-tools unixodbc-dev -y
 
-# populate "ocbdinst.ini"
-RUN echo "[FreeTDS]\n\
-Description = FreeTDS unixODBC Driver\n\
-Driver = /usr/lib/x86_64-linux-gnu/odbc/libtdsodbc.so\n\
-Setup = /usr/lib/x86_64-linux-gnu/odbc/libtdsS.so" >> /etc/odbcinst.ini
+# Web Site Home
+ENV HOME_SITE "/home/site/wwwroot"
 
-#Use working directory /app
-WORKDIR /app
+#Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openssh-server \
+        vim \
+        curl \
+        wget \
+        tcptraceroute \
+        libzbar-dev \
+    && pip install --upgrade pip \
+    && pip install subprocess32 \
+    && pip install gunicorn \ 
+    && pip install virtualenv \
+    && pip install flask 
+		
+WORKDIR ${HOME_SITE}
 
-#Copy all the content of current directory to /app
-ADD . /app
+EXPOSE 8000
+# setup SSH
+RUN mkdir -p /home/LogFiles \
+     && echo "root:Docker!" | chpasswd \
+     && echo "cd /home" >> /etc/bash.bashrc 
 
-#Installing required packages
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+COPY sshd_config /etc/ssh/
+RUN mkdir -p /opt/startup
+COPY init_container.sh /opt/startup/init_container.sh
 
-#Open port 5000
-EXPOSE 5000
+# setup default site
+RUN mkdir /opt/defaultsite
+COPY hostingstart.html /opt/defaultsite
+COPY app.py /opt/defaultsite
+COPY requirements.txt /opt/defaultsite/
+COPY SalaryPrediction.pkl /opt/defaultsite/
+RUN pip install -r /opt/defaultsite/requirements.txt
 
-#Set environment variable
-ENV NAME OpentoAll
+# configure startup
+RUN chmod -R 777 /opt/startup
+COPY hostingstart.html /opt/defaultsite
+COPY entrypoint.py /usr/local/bin
 
-#Run python program
-CMD ["python","app.py"]
+
+ENTRYPOINT ["/opt/startup/init_container.sh"]
