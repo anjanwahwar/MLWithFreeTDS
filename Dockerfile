@@ -27,6 +27,8 @@ RUN apt-get update \
     && pip install gunicorn \ 
     && pip install virtualenv \
     && pip install flask 
+
+RUN apt-get install gcc -y --reinstall build-essential
 		
 WORKDIR ${HOME_SITE}
 
