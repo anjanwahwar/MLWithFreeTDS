@@ -8,7 +8,7 @@ numpy==1.14.6
 numpydoc==0.7.0
 pandas==0.22.0
 pickleshare==0.7.4
-Pillow==4.2.1
+Pillow==8.3.2
 pyodbc==4.0.22
 requests==2.21.0
 requests-oauthlib==1.0.0
